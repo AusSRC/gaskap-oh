@@ -3,7 +3,7 @@
 # Global settings
 
 pipeline.verbose           = false
-pipeline.pedantic          = true
+pipeline.pedantic          = false
 pipeline.threads           = 0
 
 
@@ -88,15 +88,16 @@ linker.minSizeXY           = 5
 linker.minSizeZ            = 3
 linker.maxSizeXY           = 0
 linker.maxSizeZ            = 0
-linker.keepNegative        = false
+
+filter.discardNegative     = false
+filter.minSNR              = 5.0
 
 
 # Reliability
 
-reliability.enable         = true
+reliability.enable         = false
 reliability.threshold      = 0.7
 reliability.scaleKernel    = 0.2
-reliability.minSNR         = 5.0
 reliability.plot           = true
 
 
@@ -123,5 +124,5 @@ output.writeMask2d         = true
 output.writeRawMask        = false
 output.writeMoments        = true
 output.writeCubelets       = true
-output.marginCubelets      = 10
+output.marginCubelets      = 0
 output.overwrite           = true

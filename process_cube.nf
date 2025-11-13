@@ -43,7 +43,6 @@ process get_parameter_files {
 }
 
 process sofia {
-    errorStrategy 'ignore'
     executor = 'slurm'
     clusterOptions = '--ntasks=1 --cpus-per-task=8 --mem=32G --account=ja3 --time=2:00:00'
 
