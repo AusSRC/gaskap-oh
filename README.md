@@ -26,7 +26,7 @@ breaks:
 
 regions:
 - subregion1: 0,6127,0,5341,0,960
-- subregion2: 0,6127,0,5341,961,1920
+- subregion2: 0,6127,0,5341,961,1920 (started)
 - subregion3: 0,6127,0,5341,1291,2880
 - subregion4: 0,6127,0,5341,2881,3842
 
