@@ -27,6 +27,31 @@ def freq_to_vel(freq_array, restfreq):
     return vel_array
 
 
+def parse_spectra(bytea):
+    """Read extracted spectra """
+    chan = []
+    freq = []
+    vel = []
+    f_peak = []
+    with StringIO(bytea.decode('ascii')) as f:
+        next(f)  # Header
+        for line in f:
+            data = line.strip().split()
+            # Removing NaN values
+            if np.isnan(float(data[3])):
+                continue
+            chan.append(int(data[0]))
+            freq.append(float(data[1]))
+            vel.append(float(data[2]))
+            f_peak.append(float(data[3]))
+    spec = pd.DataFrame()
+    spec['chan'] = np.array(chan)
+    spec['freq'] = np.array(freq)
+    spec['vel'] = np.array(vel)
+    spec['f_peak'] = np.array(f_peak)
+    return spec
+
+
 def parse_spectra_sofia(bytea):
     """Read sofia output spectra.
     Return arrays for channel, freq, and f_sum across spectra
@@ -79,7 +104,7 @@ async def main(argv):
     async with pool.acquire() as conn:
         async with conn.transaction():
             run = await conn.fetchrow('SELECT * FROM run WHERE name=$1', run_name)
-            logging.info('Running sidelobe rejection for detections in run %s' % run['name'])
+            logging.info('Generating plots for run %s' % run['name'])
             assert run is not None, 'Run does not exist'
 
             query = '''
@@ -91,10 +116,14 @@ async def main(argv):
             detections = await conn.fetch(query, run_name)
             detection_dict = [dict(d) for d in detections]
             detections_df = pd.DataFrame(detection_dict)
+            detections_df['spec'] = [parse_spectra(b) for b in detections_df['spec']]
+
+            accepted_df = detections_df[detections_df['accepted'] == True]
+            unresolved_df = detections_df[~(detections_df['accepted'] == True)]
 
             # Create plot
             fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 6), sharex=True)
-            cmap = plt.cm.get_cmap('nipy_spectral', len(detections))
+            cmap = plt.cm.get_cmap('nipy_spectral', len(unresolved_df))
             ax1.grid(True)
             ax2.grid(True)
             ax1.set_xlabel('Velocity (km/s)')
@@ -102,13 +131,18 @@ async def main(argv):
             ax1.set_ylabel('Flux (Jy)')
             ax1.set_title('GASKAP-OH detection spectra')
 
-            logging.info('Processing %i detections' % len(detections))
-            for idx, detection in detections_df.iterrows():
-                logging.info('[%i/%i] %s' % (idx+1, len(detections), detection['name']))
-                spec_bytes = detection['spec']
-                _, freq_array, f_sum_array = parse_spectra_sofia(spec_bytes)
-                vel_array = freq_to_vel(freq_array, restfreq) / 1e3  # km/s
-                ax1.plot(vel_array, f_sum_array, color=cmap(idx), linewidth=1)
+            logging.info('Plotting %i unresolved detections' % len(unresolved_df))
+            for idx, detection in unresolved_df.iterrows():
+                spec = detection['spec']
+                # spec_bytes = detection['spec']
+                # _, freq_array, f_sum_array = parse_spectra_sofia(spec_bytes)
+                # vel_array = freq_to_vel(freq_array, restfreq) / 1e3  # km/s
+                ax1.plot(spec['vel'], spec['f_peak'], color=cmap(idx), linewidth=1)
+
+            logging.info('Plotting %i accepted detections' % len(accepted_df))
+            for idx, detection in accepted_df.iterrows():
+                spec = detection['spec']
+                ax2.plot(spec['vel'], spec['f_peak'], color='black', linewidth=1)
 
             # Save plot
             fig.tight_layout()
