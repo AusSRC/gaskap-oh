@@ -4,3 +4,8 @@ slurm*
 trace*
 dev
 config
+
+// notebook
+.ipynb_checkpoints
+catalog.xml
+products
