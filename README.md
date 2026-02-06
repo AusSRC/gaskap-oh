@@ -76,6 +76,6 @@ It is expected that all configuration files are found under the root of the proj
 
 ## Sidelobe rejection
 
-The following workflow is
+**NOTE: this is work in progress**
 
 ![flowchart](media/flow.png)

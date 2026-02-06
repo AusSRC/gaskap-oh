@@ -28,12 +28,12 @@ def freq_to_vel(freq_array, restfreq):
 
 
 def parse_spectra(bytea):
-    """Read extracted spectra """
+    """Read extracted spectra"""
     chan = []
     freq = []
     vel = []
     f_peak = []
-    with StringIO(bytea.decode('ascii')) as f:
+    with StringIO(bytea.decode("ascii")) as f:
         next(f)  # Header
         for line in f:
             data = line.strip().split()
@@ -45,10 +45,10 @@ def parse_spectra(bytea):
             vel.append(float(data[2]))
             f_peak.append(float(data[3]))
     spec = pd.DataFrame()
-    spec['chan'] = np.array(chan)
-    spec['freq'] = np.array(freq)
-    spec['vel'] = np.array(vel)
-    spec['f_peak'] = np.array(f_peak)
+    spec["chan"] = np.array(chan)
+    spec["freq"] = np.array(freq)
+    spec["vel"] = np.array(vel)
+    spec["f_peak"] = np.array(f_peak)
     return spec
 
 
@@ -60,7 +60,7 @@ def parse_spectra_sofia(bytea):
     chan = []
     freq = []
     f_sum = []
-    with StringIO(bytea.decode('ascii')) as f:
+    with StringIO(bytea.decode("ascii")) as f:
         for line in f:
             li = line.strip()
             if not li.startswith("#"):
@@ -70,7 +70,7 @@ def parse_spectra_sofia(bytea):
                 f_sum.append(float(data[2]))
 
     if not chan or not freq or not f_sum:
-        logging.info('Spec file empty')
+        logging.info("Spec file empty")
         return None
 
     chan = np.array(chan)
@@ -82,75 +82,75 @@ def parse_spectra_sofia(bytea):
 async def main(argv):
     # Read config
     config_file = argv[0]
-    assert os.path.exists(config_file), 'Config file does not exist'
+    assert os.path.exists(config_file), "Config file does not exist"
     parser = ConfigParser()
     parser.read(config_file)
-    config = parser['SoFiAX']
-    run_name = config['run_name']
+    config = parser["SoFiAX"]
+    run_name = config["run_name"]
     creds = {
-        "host": config['db_hostname'],
-        "database": config['db_name'],
-        "user": config['db_username'],
-        "password": config['db_password'],
-	    "port": config['db_port']
+        "host": config["db_hostname"],
+        "database": config["db_name"],
+        "user": config["db_username"],
+        "password": config["db_password"],
+        "port": config["db_port"],
     }
-    schema = config['db_schema']
+    schema = config["db_schema"]
 
     # Constants
     restfreq = 1665401800.0
 
     # Database connection
-    pool = await asyncpg.create_pool(**creds, server_settings={'search_path': schema})
+    pool = await asyncpg.create_pool(**creds, server_settings={"search_path": schema})
     async with pool.acquire() as conn:
         async with conn.transaction():
-            run = await conn.fetchrow('SELECT * FROM run WHERE name=$1', run_name)
-            logging.info('Generating plots for run %s' % run['name'])
-            assert run is not None, 'Run does not exist'
+            run = await conn.fetchrow("SELECT * FROM run WHERE name=$1", run_name)
+            logging.info("Generating plots for run %s" % run["name"])
+            assert run is not None, "Run does not exist"
 
-            query = '''
+            query = """
                 SELECT d.*, p.spec FROM detection d
                 LEFT JOIN run r ON r.id = d.run_id
                 LEFT JOIN product p ON p.detection_id = d.id
                 WHERE r.name = $1
-            '''
+            """
             detections = await conn.fetch(query, run_name)
             detection_dict = [dict(d) for d in detections]
             detections_df = pd.DataFrame(detection_dict)
-            detections_df['spec'] = [parse_spectra(b) for b in detections_df['spec']]
+            detections_df["spec"] = [parse_spectra(b) for b in detections_df["spec"]]
 
-            accepted_df = detections_df[detections_df['accepted'] == True]
-            unresolved_df = detections_df[~(detections_df['accepted'] == True)]
+            accepted_df = detections_df[detections_df["accepted"] == True]
+            unresolved_df = detections_df[~(detections_df["accepted"] == True)]
 
             # Create plot
             fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 6), sharex=True)
-            cmap = plt.cm.get_cmap('nipy_spectral', len(unresolved_df))
+            cmap = plt.cm.get_cmap("nipy_spectral", len(unresolved_df))
             ax1.grid(True)
             ax2.grid(True)
-            ax1.set_xlabel('Velocity (km/s)')
-            ax2.set_xlabel('Velocity (km/s)')
-            ax1.set_ylabel('Flux (Jy)')
-            ax1.set_title('GASKAP-OH detection spectra')
+            ax1.set_xlabel("Velocity (km/s)")
+            ax2.set_xlabel("Velocity (km/s)")
+            ax1.set_ylabel("Flux (Jy)")
+            ax1.set_title("GASKAP-OH detection spectra")
 
-            logging.info('Plotting %i unresolved detections' % len(unresolved_df))
+            logging.info("Plotting %i unresolved detections" % len(unresolved_df))
             for idx, detection in unresolved_df.iterrows():
-                spec = detection['spec']
+                spec = detection["spec"]
                 # spec_bytes = detection['spec']
                 # _, freq_array, f_sum_array = parse_spectra_sofia(spec_bytes)
                 # vel_array = freq_to_vel(freq_array, restfreq) / 1e3  # km/s
-                ax1.plot(spec['vel'], spec['f_peak'], color=cmap(idx), linewidth=1)
+                ax1.plot(spec["vel"], spec["f_peak"], color=cmap(idx), linewidth=1)
 
-            logging.info('Plotting %i accepted detections' % len(accepted_df))
+            logging.info("Plotting %i accepted detections" % len(accepted_df))
             for idx, detection in accepted_df.iterrows():
-                spec = detection['spec']
-                ax2.plot(spec['vel'], spec['f_peak'], color='black', linewidth=1)
+                spec = detection["spec"]
+                ax2.plot(spec["vel"], spec["f_peak"], color="black", linewidth=1)
 
             # Save plot
             fig.tight_layout()
-            plt.savefig('spectra.png')
+            plt.savefig("spectra.png")
             plt.close()
     return
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     argv = sys.argv[1:]
     asyncio.run(main(argv))

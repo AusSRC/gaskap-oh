@@ -3,6 +3,8 @@ nextflow.enable.dsl = 2
 
 process s2p_setup {
     input:
+        env SOFTWARE_DIR
+
         val run_name
         val image_cube
         val weights_cube
@@ -18,7 +20,7 @@ process s2p_setup {
         """
         #!/bin/bash
         module load py-astropy/5.1
-        python3 /software/projects/ja3/ashen/s2p_setup/s2p_setup.py \
+        python3 $SOFTWARE_DIR/s2p_setup/s2p_setup.py \
             --config $s2p_template \
             --image_cube $image_cube \
             --weights_cube $weights_cube \
@@ -48,6 +50,7 @@ process sofia {
     clusterOptions = '--ntasks=1 --cpus-per-task=8 --mem=80G --account=ja3 --time=2:00:00'
 
     input:
+        env SOFTWARE_DIR
         val parameter_file
 
     output:
@@ -59,7 +62,7 @@ process sofia {
 
         export OMP_NUM_THREADS=8
         module load wcslib/7.3
-        /software/projects/ja3/ashen/SoFiA-2/sofia $parameter_file
+        $SOFTWARE_DIR/SoFiA-2/sofia $parameter_file
         """
 }
 
@@ -68,6 +71,9 @@ process update_sofiax_config {
     clusterOptions = '--mem=16G --account=ja3 --time=1:00:00'
 
     input:
+        env PYTHON_ENV
+        env SOFTWARE_DIR
+
         val run_name
         val sofiax_config
         val output_file
@@ -80,8 +86,8 @@ process update_sofiax_config {
     script:
         """
         #!/bin/bash
-        source /software/projects/ja3/ashen/venv/bin/activate
-        python3 /software/projects/ja3/ashen/pipeline_components/source_finding/update_sofiax_config.py \
+        source $PYTHON_ENV
+        python3 $SOFTWARE_DIR/pipeline_components/source_finding/update_sofiax_config.py \
             --config $sofiax_config \
             --output $output_file \
             --run_name $run_name
@@ -93,6 +99,9 @@ process update_spectra {
     clusterOptions = '--mem=32G --account=ja3 --time=12:00:00'
 
     input:
+        env PYTHON_ENV
+        env SOFTWARE_DIR
+
         val sofiax_config
         val ready
 
@@ -102,8 +111,8 @@ process update_spectra {
     script:
         """
         #!/bin/bash
-        source /software/projects/ja3/ashen/venv/bin/activate
-        python /software/projects/ja3/ashen/gaskap-oh/modules/extract_spectra.py $sofiax_config
+        source $PYTHON_ENV
+        python $SOFTWARE_DIR/gaskap-oh/modules/extract_spectra.py $sofiax_config
         """
 }
 
@@ -112,6 +121,9 @@ process sofiax {
     clusterOptions = '--mem=32G --account=ja3 --time=2:00:00'
 
     input:
+        env PYTHON_ENV
+        env SOFTWARE_DIR
+
         val parameter_file
         val sofiax_config
         val ready
@@ -122,21 +134,28 @@ process sofiax {
     script:
         """
         #!/bin/bash
-        source /software/projects/ja3/ashen/venv/bin/activate
-        python /software/projects/ja3/ashen/SoFiAX/sofiax -c $sofiax_config -p ${parameter_file.join(' ')}
+        source $PYTHON_ENV
+        python $SOFTWARE_DIR/SoFiAX/sofiax -c $sofiax_config -p ${parameter_file.join(' ')}
         """
 }
 
 workflow {
+    // User-provided parameters
     run = 'gaskap-oh-subregion2_sofiax_pipeline'
+    workdir = '/scratch/ja3/ashen/gaskap-oh/gaskap-oh-subregion2_sofiax_pipeline'
     cube = '/scratch/ja3/jkumar/G335_1665/70731-G335-mainline-May2025/ImageCubes/image.restored.i.G334_1666_A_1.SB70731.cube_1665.contsub.fits'
     weights = '/scratch/ja3/jkumar/G335_1665/70731-G335-mainline-May2025/ImageCubes/weights.i.G334_1666_A_1.SB70731.cube_1665.contsub.fits'
-    s2p_template = '/software/projects/ja3/ashen/gaskap-oh/s2p_setup.ini'
-    sofiax_config = '/software/projects/ja3/ashen/gaskap-oh/sofiax.ini'
-    sofia_parameters = '/software/projects/ja3/ashen/gaskap-oh/sofia_template.par'
-    sofiax_run_config = '/scratch/ja3/ashen/gaskap-oh/gaskap-oh-subregion2_sofiax_pipeline/sofiax.ini'
-    output_dir = '/scratch/ja3/ashen/gaskap-oh/gaskap-oh-subregion2_sofiax_pipeline/outputs'
-    products_dir = '/scratch/ja3/ashen/gaskap-oh/gaskap-oh-subregion2_sofiax_pipeline/products'
+
+    // Temporary files
+    output_dir = "${workdir}/outputs"
+    products_dir = "${workdir}/products"
+    sofiax_run_config = "${workdir}/sofiax.ini"
+
+    // User configuration
+    dir = System.getProperty("user.dir");
+    s2p_template = "${dir}/config/s2p_setup.ini"
+    sofiax_config = "${dir}/config/sofiax.ini"
+    sofia_parameters = "${dir}/config/sofia_template.par"
 
     main:
         s2p_setup(run, cube, weights, sofia_parameters, s2p_template, output_dir, products_dir)
