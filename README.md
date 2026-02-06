@@ -1,12 +1,24 @@
 # GASKAP-OH
 
+## Overview
+
+### Usage
+
+
+
+### Sidelobe rejection strategy
+
+![flowchart](media/flow.png)
+
+## Processing
+
 Noting the subregions that have been processed.
 
-## choosing parameters
+### choosing parameters
 
 All of these runs are in the `choose_parameters` subdirectory
 
-## subregion (processing the entire cube)
+### subregion (processing the entire cube)
 
 ### running
 

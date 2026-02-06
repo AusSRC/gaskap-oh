@@ -60,9 +60,9 @@ async def extract_spec(detection_id, data, df, x, y, conn):
     bytea = bytes(df_string, 'utf-8')
 
     # Update database
-    query = 'UPDATE product SET spec=$1 WHERE detection_id=$2'
-    res = await conn.execute(query, bytea, detection_id)
-    logging.debug(res)
+    # query = 'UPDATE product SET spec=$1 WHERE detection_id=$2'
+    # res = await conn.execute(query, bytea, detection_id)
+    # logging.debug(res)
 
     logging.info('(%.2f s) Updated spec product for detection %i' % (time.time() - start, detection_id))
     return

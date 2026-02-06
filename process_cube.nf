@@ -45,7 +45,7 @@ process get_parameter_files {
 process sofia {
     errorStrategy 'ignore'
     executor = 'slurm'
-    clusterOptions = '--ntasks=1 --cpus-per-task=8 --mem=32G --account=ja3 --time=2:00:00'
+    clusterOptions = '--ntasks=1 --cpus-per-task=8 --mem=80G --account=ja3 --time=2:00:00'
 
     input:
         val parameter_file
@@ -90,12 +90,12 @@ process update_sofiax_config {
 
 process update_spectra {
     executor = 'slurm'
-    clusterOptions = '--mem=32G --account=ja3 --time=2:00:00'
+    clusterOptions = '--mem=32G --account=ja3 --time=12:00:00'
 
     input:
-        val output_directory
+        val sofiax_config
         val ready
-    
+
     output:
         val true, emit: done
 
@@ -103,7 +103,7 @@ process update_spectra {
         """
         #!/bin/bash
         source /software/projects/ja3/ashen/venv/bin/activate
-        python /software/projects/ja3/ashen/gaskap-oh/modules/extract_spectra.py $output_directory
+        python /software/projects/ja3/ashen/gaskap-oh/modules/extract_spectra.py $sofiax_config
         """
 }
 
@@ -143,6 +143,5 @@ workflow {
         update_sofiax_config(run, sofiax_config, sofiax_run_config, s2p_setup.out.output_dir)
         get_parameter_files(s2p_setup.out.output_dir)
         sofia(get_parameter_files.out.parameter_files.flatten())
-        update_spectra(products_dir, sofia.out.parameter_file.collect())
-        sofiax(sofia.out.parameter_file.collect(), update_sofiax_config.out.output_file, update_spectra.out.done)
+        sofiax(sofia.out.parameter_file.collect(), update_sofiax_config.out.output_file, true)
 }

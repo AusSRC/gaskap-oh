@@ -1,5 +1,7 @@
 .nextflow*
 work
-choose_parameters/*
 slurm*
 trace*
+dev
+media
+config
