@@ -1,58 +1,81 @@
 # GASKAP-OH
 
-## Overview
+Code for the AusSRC GASKAP-OH data processing pipeline. Provides the following functionality:
 
-### Usage
+* Runs the SoFiA-2 source finder on a GASKAP OH image cube
+* Ingests the SoFiA outputs into the GASKAP OH database
+* Python modules for various post-processing steps
+    * Extract full spectra of a detection from the peak pixel location (rather than across the mask as is default in SoFiA)
+    * Generate summary plots (example provided below, candidate sidelobe on left, accepted spectra on the right)
+    * Run sidelobe rejection workflow (developed by Jay)
+    * Reset selection for a SoFiA pipeline run (reset selection of masers, sidelobes and rejected sources to allow testing of sidelobe rejection workflow)
 
+![summary plot example](media/spectra.png)
 
+## Usage
 
-### Sidelobe rejection strategy
+The following command runs the pipeline. Note that it assumes all dependencies are installed and that all variables are provided. You will need to update the `process_cube.nf` file with these input variables.
+
+```
+module load nextflow/24.10.0
+export PYTHON_ENV=/software/projects/ja3/ashen/venv/bin/activate
+export SOFTWARE_DIR=/software/projects/ja3/ashen
+nextflow run process_cube.nf -with-trace
+```
+
+## Environment
+
+Create a Python virtual environment. We will install all Python dependencies here for all components of the pipeline, and reference this virtual env in the pipeline to ensure dependencies are available. The location of your virtual env will be set to the `$PYTHON_ENV` environment variable.
+
+```
+python3 -m venv path/to/venv
+source path/to/venv/bin/activate
+export PYTHON_ENV=path/to/venv/bin/activate
+```
+
+Then we will install all of the dependent software inside this virtual environment. This guide assumes you are installing on Setonix, which makes certain software (e.g. `wcslib=7.3`) available as a module. The following sections are the different software dependencies and how they can be installed.
+
+### s2p_setup
+
+```
+git clone https://github.com/AusSRC/s2p_setup.git
+pip install -r s2p_setup/requirements.txt
+```
+
+### SoFiAX
+
+```
+git clone https://github.com/AusSRC/SoFiAX.git
+cd SoFiAX
+python setup.py install
+```
+
+### SoFiA-2
+
+```
+git clone https://gitlab.com/SoFiA-Admin/SoFiA-2
+cd SoFiA-2
+module load wcslib/7.3
+./compile.sh -fopenmp
+```
+
+### pipeline components
+
+```
+git clone https://github.com/AusSRC/pipeline_components.git
+pip install -r pipeline_components/source_finding/requirements.txt
+```
+
+## Config
+
+It is expected that all configuration files are found under the root of the project in a folder called `config`. Users will need to modify the contents of these parameter files (e.g. set the correct database credentials for ingest). The following templates are required for configuring the pipeline:
+
+* [s2p_setup.ini](config/s2p_setup.ini)
+* [sofiax.ini](config/sofiax.ini)
+* [sofia_template.par](config/sofia_template.par)
+
+## Sidelobe rejection
+
+The following workflow is
 
 ![flowchart](media/flow.png)
-
-## Processing
-
-Noting the subregions that have been processed.
-
-### choosing parameters
-
-All of these runs are in the `choose_parameters` subdirectory
-
-### subregion (processing the entire cube)
-
-### running
-
-Process:
-* Update `s2p_setup.sh` script run name, output directories
-* Update `s2p_setup.ini` file boundary
-* run `process_cube.sbatch`
-
-### overview
-
-cube shape: [12254, 10683, 1, 3842]
-
-breaks:
-- ra: 0-6127, 6128-12254
-- dec: 0-5341, 5342-10683
-- freq: 0-960, 961-1920, 1921-2880, 2881-3842
-
-regions:
-- subregion1: 0,6127,0,5341,0,960
-- subregion2: 0,6127,0,5341,961,1920 (started)
-- subregion3: 0,6127,0,5341,1291,2880
-- subregion4: 0,6127,0,5341,2881,3842
-
-- subregion5: 6128,12254,0,5341,0,960
-- subregion6: 6128,12254,0,5341,961,1920
-- subregion7: 6128,12254,0,5341,1291,2880
-- subregion8: 6128,12254,0,5341,2881,3842
-
-- subregion9: 0,6127,5342,10683,0,960
-- subregion10: 0,6127,5342,10683,961,1920
-- subregion11: 0,6127,5342,10683,1291,2880
-- subregion12: 0,6127,5342,10683,2881,3842
-
-- subregion13: 6128,12254,5342,10683,0,960
-- subregion14: 6128,12254,5342,10683,961,1920
-- subregion15: 6128,12254,5342,10683,1291,2880
-- subregion16: 6128,12254,5342,10683,2881,3842
