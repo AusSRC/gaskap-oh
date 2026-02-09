@@ -3,8 +3,6 @@ nextflow.enable.dsl = 2
 
 process s2p_setup {
     input:
-        env SOFTWARE_DIR
-
         val run_name
         val image_cube
         val weights_cube
@@ -50,7 +48,6 @@ process sofia {
     clusterOptions = '--ntasks=1 --cpus-per-task=8 --mem=80G --account=ja3 --time=2:00:00'
 
     input:
-        env SOFTWARE_DIR
         val parameter_file
 
     output:
@@ -71,9 +68,6 @@ process update_sofiax_config {
     clusterOptions = '--mem=16G --account=ja3 --time=1:00:00'
 
     input:
-        env PYTHON_ENV
-        env SOFTWARE_DIR
-
         val run_name
         val sofiax_config
         val output_file
@@ -99,9 +93,6 @@ process update_spectra {
     clusterOptions = '--mem=32G --account=ja3 --time=12:00:00'
 
     input:
-        env PYTHON_ENV
-        env SOFTWARE_DIR
-
         val sofiax_config
         val ready
 
@@ -121,9 +112,6 @@ process sofiax {
     clusterOptions = '--mem=32G --account=ja3 --time=2:00:00'
 
     input:
-        env PYTHON_ENV
-        env SOFTWARE_DIR
-
         val parameter_file
         val sofiax_config
         val ready
@@ -141,8 +129,8 @@ process sofiax {
 
 workflow {
     // User-provided parameters
-    run = 'gaskap-oh-subregion2_sofiax_pipeline'
-    workdir = '/scratch/ja3/ashen/gaskap-oh/gaskap-oh-subregion2_sofiax_pipeline'
+    run = 'gaskap-oh-subregion2_sofiax_pipeline_test1'
+    workdir = '/scratch/ja3/ashen/gaskap-oh/gaskap-oh-subregion2_sofiax_pipeline_test1'
     cube = '/scratch/ja3/jkumar/G335_1665/70731-G335-mainline-May2025/ImageCubes/image.restored.i.G334_1666_A_1.SB70731.cube_1665.contsub.fits'
     weights = '/scratch/ja3/jkumar/G335_1665/70731-G335-mainline-May2025/ImageCubes/weights.i.G334_1666_A_1.SB70731.cube_1665.contsub.fits'
 
