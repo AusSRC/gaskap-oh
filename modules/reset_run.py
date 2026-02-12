@@ -56,7 +56,14 @@ async def main(argv):
             await conn.execute(
                 "UPDATE detection SET accepted=false WHERE run_id=$1", int(run["id"])
             )
-            logging.info("Detections for run %s reset" % run_name)
+            logging.info("Detections flags for run %s reset" % run_name)
+
+            # remove all tag detections
+            detections = await conn.fetch('SELECT * FROM detection WHERE run_id=$1', int(run['id']))
+            await conn.executemany(
+                "DELETE FROM tag_detection WHERE detection_id=$1", [[int(d['id'])] for d in detections]
+            )
+            logging.info('Removed all tag_detections for detections in run %s' % run_name)
     return
 
 

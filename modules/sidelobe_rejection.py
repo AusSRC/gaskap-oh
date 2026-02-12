@@ -52,14 +52,20 @@ def parse_spectra(bytea):
     with StringIO(bytea.decode("ascii")) as f:
         next(f)  # Header
         for line in f:
-            data = line.strip().split()
-            # Removing NaN values
-            if np.isnan(float(data[3])):
-                continue
-            chan.append(int(data[0]))
-            freq.append(float(data[1]))
-            vel.append(float(data[2]))
-            f_peak.append(float(data[3]))
+            try:
+                data = line.strip().split()
+                # Removing NaN values
+                if np.isnan(float(data[3])):
+                    continue
+                chan.append(int(data[0]))
+                freq.append(float(data[1]))
+                vel.append(float(data[2]))
+                f_peak.append(float(data[3]))
+            except Exception as e:
+                # Handling some comment lines #
+                logging.warning('Ignoring rows in spectra')
+                logging.warning(e)
+                logging.warning(data)
     spec = pd.DataFrame()
     spec["chan"] = np.array(chan)
     spec["freq"] = np.array(freq)
@@ -129,6 +135,29 @@ async def sidelobe_plots(conn, maser, detection, sidelobes):
     # Update in database
     query = "UPDATE product SET plot=$1 WHERE detection_id=$2"
     await conn.execute(query, plot_bytes, detection["id"])
+    return
+
+
+async def add_tags(conn, text, description, detections):
+    """Add tags to detection. If the tag does not exist create it.
+    Otherwise just add tag_detection entry.
+
+    """
+    # Fetch or create tag
+    tag_id = None
+    row = await conn.fetchrow('SELECT * FROM tag WHERE name=$1', text)
+    if row is None:
+        logging.info('Tag with name %s does not exist. Creating tag entry.' % text)
+        res = await conn.execute('INSERT INTO tag (name, description) VALUES ($1, $2)', text, description)
+        row = await conn.fetchrow('SELECT * FROM tag WHERE name=$1', text)
+        tag_id = int(row['id'])
+    else:
+        tag_id = int(row['id'])
+    res = await conn.executemany(
+        "INSERT INTO tag_detection (tag_id, detection_id, author) VALUES ($1, $2, $3)",
+        [[tag_id, i, 'gaskapsuper'] for i in detections["id"]],
+    )
+    print(res)
     return
 
 
@@ -266,6 +295,11 @@ async def main(argv):
                 % (len(masers_df), len(reject_df), len(unresolved_df))
             )
 
+            # Add tags for round 1
+            await add_tags(conn, 'SR Round 1 - Maser', 'Sidelobe rejection round 1 classified as maser', masers_df)
+            await add_tags(conn, 'SR Round 1 - Reject', 'Sidelobe rejection round 1 classified as rejected', reject_df)
+            await add_tags(conn, 'SR Round 1 - Unresolved', 'Sidelobe rejection round 1 classified as unresolved', unresolved_df)
+
             # Filtering stage 2: SNR < 4 reject
             logging.info("Round 2")
             snr_reject_df = unresolved_df[unresolved_df["snr"] < 4]
@@ -280,6 +314,10 @@ async def main(argv):
                 % (len(masers_df), len(reject_df), len(unresolved_df))
             )
 
+            # Add tags for round 2
+            await add_tags(conn, 'SR Round 2 - Reject', 'Sidelobe rejection round 2 classified as rejected', snr_reject_df)
+            await add_tags(conn, 'SR Round 2 - Unresolved', 'Sidelobe rejection round 2 classified as unresolved', unresolved_df)
+
             # Filtering stage 3: SNR > 10 masers
             logging.info("Round 3")
             masers_df_iter2, reject_df_iter2, unresolved_df_iter2 = (
@@ -292,6 +330,11 @@ async def main(argv):
                 "Accepted: %i, rejected: %i, unresolved: %i\n"
                 % (len(masers_df), len(reject_df), len(unresolved_df))
             )
+
+            # Add tags for round 3
+            await add_tags(conn, 'SR Round 3 - Maser', 'Sidelobe rejection round 3 classified as maser', masers_df_iter2)
+            await add_tags(conn, 'SR Round 3 - Reject', 'Sidelobe rejection round 3 classified as rejected', reject_df_iter2)
+            await add_tags(conn, 'SR Round 3 - Unresolved', 'Sidelobe rejection round 3 classified as unresolved', unresolved_df_iter2)
 
             # Update database
             res = await conn.executemany(
