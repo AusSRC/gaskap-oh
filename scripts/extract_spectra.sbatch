@@ -2,6 +2,7 @@
 #SBATCH --time=23:00:00
 #SBATCH --mem=32G
 #SBATCH --account=ja3
-source /software/projects/ja3/ashen/venv/bin/activate
-python3 /software/projects/ja3/ashen/gaskap-oh/modules/extract_spectra.py \
-    /software/projects/ja3/ashen/gaskap-oh/sofiax.ini
+SOFTWARE_DIR=/software/projects/ja3/ashen
+source $SOFTWARE_DIR/venv/bin/activate
+python3 $SOFTWARE_DIR/gaskap-oh/modules/extract_spectra.py \
+    $SOFTWARE_DIR/gaskap-oh/sofiax.ini

@@ -129,8 +129,8 @@ process sofiax {
 
 workflow {
     // User-provided parameters
-    run = 'gaskap-oh-subregion2_sofiax_pipeline_test1'
-    workdir = '/scratch/ja3/ashen/gaskap-oh/gaskap-oh-subregion2_sofiax_pipeline_test1'
+    run = 'gaskap-oh-test-2026-04-16'
+    workdir = "/scratch/ja3/ashen/gaskap-oh/${run}"
     cube = '/scratch/ja3/jkumar/G335_1665/70731-G335-mainline-May2025/ImageCubes/image.restored.i.G334_1666_A_1.SB70731.cube_1665.contsub.fits'
     weights = '/scratch/ja3/jkumar/G335_1665/70731-G335-mainline-May2025/ImageCubes/weights.i.G334_1666_A_1.SB70731.cube_1665.contsub.fits'
 
@@ -146,9 +146,14 @@ workflow {
     sofia_parameters = "${dir}/config/sofia_template.par"
 
     main:
+	// Setup
         s2p_setup(run, cube, weights, sofia_parameters, s2p_template, output_dir, products_dir)
         update_sofiax_config(run, sofiax_config, sofiax_run_config, s2p_setup.out.output_dir)
         get_parameter_files(s2p_setup.out.output_dir)
+
+	// Run SoFiA and SoFiAX
         sofia(get_parameter_files.out.parameter_files.flatten())
         sofiax(sofia.out.parameter_file.collect(), update_sofiax_config.out.output_file, true)
+
+	// Run sidelobe rejection
 }
