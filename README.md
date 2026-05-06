@@ -95,6 +95,8 @@ Process:
 3. Switch to new branch inside of your development environment
 4. Develop in that branch
 
+The details:
+
 1. Clone the repository and make asure it is up to date
 
 ```
@@ -115,11 +117,11 @@ git checkout -b <branch_name>
 
 4. Develop
 
-Write your code. Add the changes. Commit and push.
+Write your code. Add the changes. Commit and push when you are ready.
 
 ```
 git status
 git add <file>
 git commit -m "<commit message>"
-git push
+git push --set-upstream origin <branch>
 ```
