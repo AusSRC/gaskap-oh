@@ -99,3 +99,5 @@ Check the repository is up to date
 ```
 git fetch && git pull
 ```
+
+## Jay is here from May 6
