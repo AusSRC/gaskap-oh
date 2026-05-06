@@ -88,16 +88,42 @@ It is expected that all configuration files are found under the root of the proj
 
 ## Collaborating
 
-Clone the repository
+Process:
+
+1. Clone repository
+2. Create a new branch for your feature
+3. Switch to new branch inside of your development environment
+4. Develop in that branch
+
+The details:
+
+1. Clone the repository and make asure it is up to date
 
 ```
 git clone https://github.com/AusSRC/gaskap-oh.git
-```
-
-Check the repository is up to date
-
-```
 git fetch && git pull
+```
+
+2. Create new branch.
+
+You can do this in the browser.
+
+3. List all branches and switch to the branch of choice
+
+```
+git branch -a
+git checkout -b <branch_name>
+```
+
+4. Develop
+
+Write your code. Add the changes. Commit and push when you are ready.
+
+```
+git status
+git add <file>
+git commit -m "<commit message>"
+git push --set-upstream origin <branch>
 ```
 
 ## Jay is here from May 6, 2026
