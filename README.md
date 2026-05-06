@@ -33,7 +33,13 @@ source path/to/venv/bin/activate
 export PYTHON_ENV=path/to/venv/bin/activate
 ```
 
-Then we will install all of the dependent software inside this virtual environment. This guide assumes you are installing on Setonix, which makes certain software (e.g. `wcslib=7.3`) available as a module. The following sections are the different software dependencies and how they can be installed.
+Then we will install all of the dependent software inside this virtual environment. This guide assumes you are installing on Setonix, which makes certain software (e.g. `wcslib=7.3`) available as a module. The following sections are the different software dependencies and how they can be installed. Activate the virtual environment for all installation steps below.
+
+You may need to install the following if there are issues with setuptools:
+
+```
+pip install -U pip setuptools wheel
+```
 
 ### s2p_setup
 
@@ -56,7 +62,7 @@ python setup.py install
 git clone https://gitlab.com/SoFiA-Admin/SoFiA-2
 cd SoFiA-2
 module load wcslib/7.3
-./compile.sh -fopenmp
+make
 ```
 
 ### pipeline components
@@ -79,3 +85,17 @@ It is expected that all configuration files are found under the root of the proj
 **NOTE: this is work in progress**
 
 ![flowchart](media/flow.png)
+
+## Collaborating
+
+Clone the repository
+
+```
+git clone https://github.com/AusSRC/gaskap-oh.git
+```
+
+Check the repository is up to date
+
+```
+git fetch && git pull
+```
