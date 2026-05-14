@@ -3,3 +3,4 @@ asyncio
 asyncpg
 matplotlib
 pandas
+plotly
