@@ -20,29 +20,6 @@ import pandas as pd
 logging.basicConfig(level=logging.INFO)
 
 
-def parse_spectra_sofia(bytea):
-    """Read sofia output spectra.
-    Return arrays for channel, freq, and f_sum across spectra
-
-    """
-    chan = []
-    freq = []
-    f_sum = []
-    with StringIO(bytea.decode("ascii")) as f:
-        for line in f:
-            li = line.strip()
-            if not li.startswith("#"):
-                data = line.split()
-                chan.append(int(data[0]))
-                freq.append(float(data[1]))
-                f_sum.append(float(data[2]))
-    spec = pd.Dataframe()
-    spec["chan"] = np.array(chan)
-    spec["freq"] = np.array(freq)
-    spec["f_sum"] = np.array(f_sum)
-    return spec
-
-
 def parse_spectra(bytea):
     """Read extracted spectra"""
     chan = []
@@ -138,18 +115,29 @@ async def sidelobe_plots(conn, maser, detection, sidelobes):
     return
 
 
-async def add_tags(conn, text, description, detections):
+async def fetch_detections_db(conn, run_name):
+    """Fetch detections for a run from the database."""
+    query = """
+        SELECT d.*, p.spec FROM detection d LEFT JOIN run r ON r.id = d.run_id
+        LEFT JOIN product p ON p.detection_id = d.id
+        WHERE r.name = $1
+    """
+    detections = await conn.fetch(query, run_name)
+    return detections
+
+
+async def add_tags_db(conn, tag, description, detections):
     """Add tags to detection. If the tag does not exist create it.
     Otherwise just add tag_detection entry.
 
     """
     # Fetch or create tag
     tag_id = None
-    row = await conn.fetchrow('SELECT * FROM tag WHERE name=$1', text)
+    row = await conn.fetchrow('SELECT * FROM tag WHERE name=$1', tag)
     if row is None:
-        logging.info('Tag with name %s does not exist. Creating tag entry.' % text)
-        res = await conn.execute('INSERT INTO tag (name, description) VALUES ($1, $2)', text, description)
-        row = await conn.fetchrow('SELECT * FROM tag WHERE name=$1', text)
+        logging.info('Tag with name %s does not exist. Creating tag entry.' % tag)
+        res = await conn.execute('INSERT INTO tag (name, description) VALUES ($1, $2)', tag, description)
+        row = await conn.fetchrow('SELECT * FROM tag WHERE name=$1', tag)
         tag_id = int(row['id'])
     else:
         tag_id = int(row['id'])
@@ -157,7 +145,27 @@ async def add_tags(conn, text, description, detections):
         "INSERT INTO tag_detection (tag_id, detection_id, author) VALUES ($1, $2, $3)",
         [[tag_id, i, 'gaskapsuper'] for i in detections["id"]],
     )
-    print(res)
+    logging.info(res)
+    return
+
+
+async def accept_detections_db(conn, detections):
+    """Set accepted=true for a table of detections."""
+    res = await conn.executemany(
+            "UPDATE detection SET accepted=true WHERE id=$1",
+            [[i] for i in detections["id"]],
+        )
+    logging.info(res)
+    return
+
+
+async def reject_detections_db(conn, detections):
+    """Set rejected=true for a table of detections."""
+    res = await conn.executemany(
+            "UPDATE detection SET rejected=true WHERE id=$1",
+            [[i] for i in detections["id"]],
+        )
+    logging.info(res)
     return
 
 
@@ -265,6 +273,8 @@ async def main(argv):
     }
     schema = config["db_schema"]
     pool = await asyncpg.create_pool(**creds, server_settings={"search_path": schema})
+
+    # All work that requires database access done within this code block
     async with pool.acquire() as conn:
         async with conn.transaction():
             run = await conn.fetchrow("SELECT * FROM run WHERE name=$1", run_name)
@@ -273,12 +283,10 @@ async def main(argv):
             )
             assert run is not None, "Run does not exist"
 
-            query = """
-                SELECT d.*, p.spec FROM detection d LEFT JOIN run r ON r.id = d.run_id
-                LEFT JOIN product p ON p.detection_id = d.id
-                WHERE r.name = $1
-            """
-            detections = await conn.fetch(query, run_name)
+            # Fetch detections for run
+            detections = await fetch_detections_db(conn, run_name)
+
+            # Update query result to dict
             detection_dict = [dict(d) for d in detections]
             detections_df = pd.DataFrame(detection_dict)
             detections_df["snr"] = detections_df["f_max"] / detections_df["rms"]
@@ -296,9 +304,9 @@ async def main(argv):
             )
 
             # Add tags for round 1
-            await add_tags(conn, 'SR Round 1 - Maser', 'Sidelobe rejection round 1 classified as maser', masers_df)
-            await add_tags(conn, 'SR Round 1 - Reject', 'Sidelobe rejection round 1 classified as rejected', reject_df)
-            await add_tags(conn, 'SR Round 1 - Unresolved', 'Sidelobe rejection round 1 classified as unresolved', unresolved_df)
+            await add_tags_db(conn, 'SR Round 1 - Maser', 'Sidelobe rejection round 1 classified as maser', masers_df)
+            await add_tags_db(conn, 'SR Round 1 - Reject', 'Sidelobe rejection round 1 classified as rejected', reject_df)
+            await add_tags_db(conn, 'SR Round 1 - Unresolved', 'Sidelobe rejection round 1 classified as unresolved', unresolved_df)
 
             # Filtering stage 2: SNR < 4 reject
             logging.info("Round 2")
@@ -315,8 +323,8 @@ async def main(argv):
             )
 
             # Add tags for round 2
-            await add_tags(conn, 'SR Round 2 - Reject', 'Sidelobe rejection round 2 classified as rejected', snr_reject_df)
-            await add_tags(conn, 'SR Round 2 - Unresolved', 'Sidelobe rejection round 2 classified as unresolved', unresolved_df)
+            await add_tags_db(conn, 'SR Round 2 - Reject', 'Sidelobe rejection round 2 classified as rejected', snr_reject_df)
+            await add_tags_db(conn, 'SR Round 2 - Unresolved', 'Sidelobe rejection round 2 classified as unresolved', unresolved_df)
 
             # Filtering stage 3: SNR > 10 masers
             logging.info("Round 3")
@@ -332,19 +340,13 @@ async def main(argv):
             )
 
             # Add tags for round 3
-            await add_tags(conn, 'SR Round 3 - Maser', 'Sidelobe rejection round 3 classified as maser', masers_df_iter2)
-            await add_tags(conn, 'SR Round 3 - Reject', 'Sidelobe rejection round 3 classified as rejected', reject_df_iter2)
-            await add_tags(conn, 'SR Round 3 - Unresolved', 'Sidelobe rejection round 3 classified as unresolved', unresolved_df_iter2)
+            await add_tags_db(conn, 'SR Round 3 - Maser', 'Sidelobe rejection round 3 classified as maser', masers_df_iter2)
+            await add_tags_db(conn, 'SR Round 3 - Reject', 'Sidelobe rejection round 3 classified as rejected', reject_df_iter2)
+            await add_tags_db(conn, 'SR Round 3 - Unresolved', 'Sidelobe rejection round 3 classified as unresolved', unresolved_df_iter2)
 
             # Update database
-            res = await conn.executemany(
-                "UPDATE detection SET accepted=true WHERE id=$1",
-                [[i] for i in masers_df["id"]],
-            )
-            res = await conn.executemany(
-                "UPDATE detection SET rejected=true WHERE id=$1",
-                [[i] for i in snr_reject_df["id"]],
-            )
+            await accept_detections_db(conn, masers_df)
+            await reject_detections_db(conn, snr_reject_df)
 
     await pool.close()
     logging.info("Closing database connection")
