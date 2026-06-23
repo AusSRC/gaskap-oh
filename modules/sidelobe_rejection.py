@@ -115,6 +115,14 @@ async def sidelobe_plots(conn, maser, detection, sidelobes):
     return
 
 
+async def fetch_run_db(conn, run_name):
+    """Fetch run from the database."""
+    run = await conn.fetchrow("SELECT * FROM run WHERE name=$1", run_name)
+    if not run:
+        raise Exception("Run with name %s does not exist in database" % run_name)
+    return run
+
+
 async def fetch_detections_db(conn, run_name):
     """Fetch detections for a run from the database."""
     query = """
@@ -123,6 +131,8 @@ async def fetch_detections_db(conn, run_name):
         WHERE r.name = $1
     """
     detections = await conn.fetch(query, run_name)
+    if not detections:
+        raise Exception("No detections found for run %s" % run_name)
     return detections
 
 
@@ -277,16 +287,14 @@ async def main(argv):
     # All work that requires database access done within this code block
     async with pool.acquire() as conn:
         async with conn.transaction():
-            run = await conn.fetchrow("SELECT * FROM run WHERE name=$1", run_name)
+            # Fetch run and detections from database
+            run = await fetch_run_db(conn, run_name)
+            detections = await fetch_detections_db(conn, run_name)
             logging.info(
                 "Running sidelobe rejection for detections in run %s" % run["name"]
             )
-            assert run is not None, "Run does not exist"
 
-            # Fetch detections for run
-            detections = await fetch_detections_db(conn, run_name)
-
-            # Update query result to dict
+            # Update detection query result to Python dataframe
             detection_dict = [dict(d) for d in detections]
             detections_df = pd.DataFrame(detection_dict)
             detections_df["snr"] = detections_df["f_max"] / detections_df["rms"]
