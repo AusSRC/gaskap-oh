@@ -141,6 +141,11 @@ async def add_tags_db(conn, tag, description, detections):
     Otherwise just add tag_detection entry.
 
     """
+    # Check there are detections
+    if len(detections) == 0:
+        logging.info("No detections to tag %s" % tag)
+        return
+
     # Fetch or create tag
     tag_id = None
     row = await conn.fetchrow('SELECT * FROM tag WHERE name=$1', tag)

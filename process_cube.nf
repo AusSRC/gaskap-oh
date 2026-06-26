@@ -45,7 +45,8 @@ process get_parameter_files {
 process sofia {
     errorStrategy 'ignore'
     executor = 'slurm'
-    clusterOptions = '--ntasks=1 --cpus-per-task=8 --mem=80G --account=ja3 --time=2:00:00'
+    clusterOptions = '--ntasks=1 --cpus-per-task=8 --mem=128G --account=ja3 --time=4:00:00'
+    // subcube shape is currently 1500x1500x4000 (36 GB)
 
     input:
         val parameter_file
@@ -88,25 +89,6 @@ process update_sofiax_config {
         """
 }
 
-process update_spectra {
-    executor = 'slurm'
-    clusterOptions = '--mem=32G --account=ja3 --time=12:00:00'
-
-    input:
-        val sofiax_config
-        val ready
-
-    output:
-        val true, emit: done
-
-    script:
-        """
-        #!/bin/bash
-        source $PYTHON_ENV
-        python $SOFTWARE_DIR/gaskap-oh/modules/extract_spectra.py $sofiax_config
-        """
-}
-
 process sofiax {
     executor = 'slurm'
     clusterOptions = '--mem=32G --account=ja3 --time=2:00:00'
@@ -127,9 +109,47 @@ process sofiax {
         """
 }
 
+process summary_plots {
+    executor = 'slurm'
+    clusterOptions = '--mem=16G --account=ja3 --time=2:00:00'
+
+    input:
+        val products_dir
+        val ready
+
+    output:
+        val true, emit: done
+
+    script:
+        """
+        #!/bin/bash
+        source $PYTHON_ENV
+        python $SOFTWARE_DIR/gaskap-oh/modules/plotly_plots.py $products_dir
+        """
+}
+
+process sidelobe_rejection {
+    executor = 'slurm'
+    clusterOptions = '--mem=16G --account=ja3 --time=2:00:00'
+
+    input:
+        val sofiax_config
+        val ready
+
+    output:
+        val true, emit: done
+
+    script:
+        """
+        #!/bin/bash
+        source $PYTHON_ENV
+        python $SOFTWARE_DIR/gaskap-oh/modules/sidelobe_rejection.py $sofiax_config
+        """
+}
+
 workflow {
     // User-provided parameters
-    run = 'gaskap-oh-test-2026-04-16'
+    run = 'gaskap-oh-test-2026-06-25-full-pipeline'
     workdir = "/scratch/ja3/ashen/gaskap-oh/${run}"
     cube = '/scratch/ja3/jkumar/G335_1665/70731-G335-mainline-May2025/ImageCubes/image.restored.i.G334_1666_A_1.SB70731.cube_1665.contsub.fits'
     weights = '/scratch/ja3/jkumar/G335_1665/70731-G335-mainline-May2025/ImageCubes/weights.i.G334_1666_A_1.SB70731.cube_1665.contsub.fits'
@@ -142,7 +162,7 @@ workflow {
     // User configuration
     dir = System.getProperty("user.dir");
     s2p_template = "${dir}/config/s2p_setup.ini"
-    sofiax_config = "${dir}/config/sofiax.ini"
+    sofiax_config = "${dir}/config/sofiax_upd.ini"
     sofia_parameters = "${dir}/config/sofia_template.par"
 
     main:
@@ -153,7 +173,9 @@ workflow {
 
 	// Run SoFiA and SoFiAX
         sofia(get_parameter_files.out.parameter_files.flatten())
-        sofiax(sofia.out.parameter_file.collect(), update_sofiax_config.out.output_file, true)
+        summary_plots(products_dir, sofia.out.parameter_file.collect())
+        sofiax(sofia.out.parameter_file.collect(), update_sofiax_config.out.output_file, summary_plots.out.done)
 
 	// Run sidelobe rejection
+        sidelobe_rejection(update_sofiax_config.out.output_file, sofiax.out.done)
 }
