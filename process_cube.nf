@@ -45,8 +45,8 @@ process get_parameter_files {
 process sofia {
     errorStrategy 'ignore'
     executor = 'slurm'
-    clusterOptions = '--ntasks=1 --cpus-per-task=8 --mem=128G --account=ja3 --time=4:00:00'
-    // subcube shape is currently 1500x1500x4000 (36 GB)
+    clusterOptions = '--mem=128G --account=ja3 --time=8:00:00'
+    // subcube shape is currently 2000x2000x4000 (64 GB)
 
     input:
         val parameter_file
@@ -149,10 +149,10 @@ process sidelobe_rejection {
 
 workflow {
     // User-provided parameters
-    run = 'gaskap-oh-test-2026-06-25-full-pipeline'
-    workdir = "/scratch/ja3/ashen/gaskap-oh/${run}"
-    cube = '/scratch/ja3/jkumar/G335_1665/70731-G335-mainline-May2025/ImageCubes/image.restored.i.G334_1666_A_1.SB70731.cube_1665.contsub.fits'
-    weights = '/scratch/ja3/jkumar/G335_1665/70731-G335-mainline-May2025/ImageCubes/weights.i.G334_1666_A_1.SB70731.cube_1665.contsub.fits'
+    run = params.RUN
+    workdir = params.WORKDIR ?: "/scratch/ja3/ashen/gaskap-oh/${run}"
+    cube = params.CUBE
+    weights = params.WEIGHTS
 
     // Temporary files
     output_dir = "${workdir}/outputs"
