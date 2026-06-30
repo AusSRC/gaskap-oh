@@ -6,6 +6,8 @@ Create .html files alongside the output cubelet files for direct ingestion with 
 """
 
 import os
+import sys
+import gzip
 import glob
 import numpy as np
 import pandas as pd
@@ -58,38 +60,54 @@ def parse_spec_aperture(filename):
     return df
 
 
-def main():
-    catalog_file = '/scratch/ja3/ashen/gaskap-oh/test-aperspec/output_cat.xml'
-    cubelet_dir = '/scratch/ja3/ashen/gaskap-oh/test-aperspec/output_cubelets/'
-    assert os.path.isdir(cubelet_dir), f"Directory {cubelet_dir} does not exist."
-    assert os.path.isfile(catalog_file), f"Catalog file {catalog_file} does not exist."
+def main(argv):
+    products_dir = argv[0]
+    if not os.path.exists(products_dir):
+        raise FileNotFoundError(f"Products directory {products_dir} does not exist.")
 
-    # Read catalog for detection names and metadata
-    vot = parse(catalog_file)
-    for resource in vot.resources:
-        for param in resource.params:
-            pass
+    # products_dir = '/scratch/ja3/ashen/gaskap-oh/gaskap-oh-test-2026-06-23/products/'
+    files = glob.glob(os.path.join(products_dir, '*_cat.xml'))
+    print(f"Found {len(files)} catalog files in {products_dir}")
+    instances = [os.path.splitext(os.path.basename(f))[0].replace('_cat', '') for f in files]
 
-    # get votable as astropy table
-    votable = parse_single_table(catalog_file)
-    n_cubelets = len(votable.array)
-    detection_table = votable.to_table()
-    print(f"Number of detections in catalog: {n_cubelets}")
+    for instance in instances:
+        catalog_file = os.path.join(products_dir, f'{instance}_cat.xml')
+        cubelets_dir = os.path.join(products_dir, f'{instance}_cubelets')
+        assert os.path.isdir(cubelets_dir), f"Directory {cubelets_dir} does not exist."
+        assert os.path.isfile(catalog_file), f"Catalog file {catalog_file} does not exist."
 
-    # Fetch all products
-    for row in detection_table:
-        name = row['name']
-        mom0_file = os.path.join(cubelet_dir, f"output_{row['id']}_mom0.fits")
-        aper_spec_file = os.path.join(cubelet_dir, f"output_{row['id']}_spec_aperture.txt")
-        output_html = os.path.join(cubelet_dir, f"output_{row['id']}_summary.html")
+        # Read catalog for detection names and metadata
+        vot = parse(catalog_file)
+        for resource in vot.resources:
+            for param in resource.params:
+                pass
 
-        # Generate plots
-        print(f"Processing detection {name} (ID: {row['id']})")
-        spec_df = parse_spec_aperture(aper_spec_file)
-        with fits.open(mom0_file) as hdu_mom0:
-            mom0_data = hdu_mom0[0].data
-        interactive_plot(output_html, name, mom0_data, spec_df)
+        # get votable as astropy table
+        votable = parse_single_table(catalog_file)
+        n_cubelets = len(votable.array)
+        detection_table = votable.to_table()
+        print(f"Number of detections in catalog: {n_cubelets}")
+
+        # Fetch all products
+        for row in detection_table:
+            name = row['name']
+            mom0_file = os.path.join(cubelets_dir, f"{instance}_{row['id']}_mom0.fits")
+            aper_spec_file = os.path.join(cubelets_dir, f"{instance}_{row['id']}_spec_aperture.txt")
+            output_html = os.path.join(cubelets_dir, f"{instance}_{row['id']}_summary.html")
+            output_html_gz = os.path.join(cubelets_dir, f"{instance}_{row['id']}_summary.html.gz")
+
+            # Generate plots
+            print(f"Processing detection {name} (ID: {row['id']})")
+            spec_df = parse_spec_aperture(aper_spec_file)
+            with fits.open(mom0_file) as hdu_mom0:
+                mom0_data = hdu_mom0[0].data
+            interactive_plot(output_html, name, mom0_data, spec_df)
+
+            # Compress
+            with open(output_html, 'rb') as f:
+                with gzip.open(output_html_gz, 'wb') as f_gz:
+                    f_gz.writelines(f)
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])

@@ -14,13 +14,30 @@ Code for the AusSRC GASKAP-OH data processing pipeline. Provides the following f
 
 ## Usage
 
-The following command runs the pipeline. Note that it assumes all dependencies are installed and that all variables are provided. You will need to update the `process_cube.nf` file with these input variables.
+To run the pipeline, assuming the environment has been set up correctly, run the following command. Below is a description of the user-configurable parameters per pipeline run. Note that other child software specific parameters are defined in the [config](/config/) subdirectory.
+
+```
+nextflow run process_cube.nf \
+    --RUN=<run_name> \
+    --CUBE=<image_cube_filename> \
+    --WEIGHTS=<weights_cube_filename>
+```
+
+| Parameter | Description | Default |
+| --- | --- | --- |
+| `RUN` | The name of the pipeline execution job in the GASKAP-OH portal | NA |
+| `WORKDIR` | Working directory in Setonix for temporary and output files made during pipeline run | `/scratch/ja3/ashen/gaskap-oh/${run}` |
+| `CUBE` | Path to image cube FITS file | NA |
+| `WEIGHTS` | Path to image cube weights FITS file | NA |
+
+## Dependencies
+
+You may need to run the following commands to set up the environment such that all dependencies are installed. This set up is specific to Setonix, and are examples based on my user account (note my user is `ashen`.) You will have to adjust the provided bash commands accordingly.
 
 ```
 module load nextflow/24.10.0
 export PYTHON_ENV=/software/projects/ja3/ashen/venv/bin/activate
 export SOFTWARE_DIR=/software/projects/ja3/ashen
-nextflow run process_cube.nf -with-trace
 ```
 
 ## Environment

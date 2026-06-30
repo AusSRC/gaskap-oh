@@ -4,3 +4,4 @@ asyncpg
 matplotlib
 pandas
 plotly
+scipy
